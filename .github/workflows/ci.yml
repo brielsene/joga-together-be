@@ -1,0 +1,126 @@
+# Nome do Workflow
+name: Java CI/CD com Docker e GitOps
+
+# Triggers: O que dispara a action
+on:
+  # Executa em pushes para a branch 'main'
+  push:
+    branches: [ "main" ]
+  # Executa em Pull Requests que miram a branch 'main'
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  ###########################################
+  # Job 1: Build e Teste da Aplicação Java #
+  ###########################################
+  build_and_test:
+    name: Build e Teste
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Checkout do código da aplicação"
+        uses: actions/checkout@v3
+
+      - name: "Configura o Java (JDK)"
+        uses: actions/setup-java@v3
+        with:
+          java-version: '11'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: "Roda os testes com Maven"
+        run: mvn test
+
+      - name: "Empacota a aplicação com Maven"
+        run: mvn package -DskipTests
+
+  ##################################################
+  # Job 2: Build e Push da Imagem Docker          #
+  # Este job só roda se o primeiro for bem sucedido #
+  # e se o evento for um push na branch 'main'.     #
+  ##################################################
+  build_and_push_docker:
+    name: Build e Push da Imagem Docker
+    runs-on: ubuntu-latest
+    needs: build_and_test
+    # Condição: Só executa em pushes para a branch 'main'
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: "Checkout do código da aplicação"
+        uses: actions/checkout@v3
+
+      - name: "Configura o QEMU (para build multi-plataforma, opcional mas bom)"
+        uses: docker/setup-qemu-action@v2
+
+      - name: "Configura o Docker Buildx"
+        uses: docker/setup-buildx-action@v2
+
+      - name: "Login no Docker Hub"
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          # CRIE ESSES SECRETS NAS CONFIGURAÇÕES DO SEU REPOSITÓRIO NO GITHUB
+          # Settings -> Secrets and variables -> Actions
+
+      - name: "Gera a tag da imagem"
+        id: meta
+        uses: docker/metadata-action@v4
+        with:
+          images: ojasonw/my-java-app # Substitua 'ojasonw' pelo seu usuário no Docker Hub
+          # Gera duas tags: 'latest' e 'sha-<hash_do_commit>'
+          tags: |
+            type=sha,prefix=,format=short
+            type=raw,value=latest
+
+      - name: "Build e Push da imagem"
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+  ########################################################
+  # Job 3: Abre um PR no Repositório GitOps             #
+  # Atualiza a tag da imagem no ambiente de dev.        #
+  ########################################################
+  update_gitops_repo:
+    name: Atualiza Repositório GitOps
+    runs-on: ubuntu-latest
+    needs: build_and_push_docker
+    steps:
+      - name: "Checkout do repositório GitOps (platform-gitops)"
+        uses: actions/checkout@v3
+        with:
+          repository: ojasonw/platform-gitops
+          # Precisa de um token para poder fazer push de uma nova branch e criar o PR.
+          # CRIE ESSE SECRET NO GITHUB: use um Personal Access Token (PAT) com escopo 'repo'.
+          token: ${{ secrets.GITOPS_PAT }}
+
+      - name: "Atualiza a tag da imagem no kustomization.yaml de dev"
+        run: |
+          # Navega para o diretório correto
+          cd apps/my-service/overlays/dev
+          # Usa 'sed' para substituir a linha da imagem.
+          # Este comando assume que a imagem já está definida no kustomization.yaml
+          # e apenas substitui a 'newTag'. Adicione o bloco 'images' se ele não existir.
+          sed -i "s/newTag: .*/newTag: sha-${{ github.sha }}/" kustomization.yaml
+          
+          # Se o bloco 'images' não existir no kustomization.yaml, você pode adicioná-lo:
+          # echo -e "
+images:
+- name: my-service
+  newTag: sha-${{ github.sha }}" >> kustomization.yaml
+          # NOTA: O nome 'my-service' no 'images' deve ser o mesmo nome do container no deployment base.
+
+      - name: "Cria um Pull Request"
+        uses: peter-evans/create-pull-request@v4
+        with:
+          token: ${{ secrets.GITOPS_PAT }}
+          commit-message: "Update image tag for my-service to sha-${{ github.sha }}"
+          title: "CI: Atualiza imagem do my-service para sha-${{ github.sha }}"
+          body: "Atualização automática da imagem pela GitHub Action."
+          branch: "update-image-my-service-${{ github.sha }}"
+          base: "main"
+          delete-branch: true
