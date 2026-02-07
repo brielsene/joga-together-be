@@ -45,9 +45,9 @@ jobs:
     # Condição: Só executa em pushes para a branch 'main' OU para tags
     if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
     
-    # Define a versão da imagem: usa a tag Git se for um evento de tag, senão usa o SHA
+    # Define a versão da imagem: usa a tag Git se for um evento de tag, senão usa o número da execução
     env:
-      IMAGE_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || format('sha-{0}', github.sha) }}
+      IMAGE_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || format('v0.0.{0}', github.run_number) }}
 
     steps:
       - name: "Checkout do código da aplicação"
@@ -86,9 +86,9 @@ jobs:
     # Condição: Só executa se for um push para a branch 'main' OU uma tag.
     if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
     
-    # Define a versão da imagem: usa a tag Git se for um evento de tag, senão usa o SHA
+    # Define a versão da imagem: usa a tag Git se for um evento de tag, senão usa o número da execução
     env:
-      IMAGE_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || format('sha-{0}', github.sha) }}
+      IMAGE_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || format('v0.0.{0}', github.run_number) }}
 
     steps:
       - name: "Checkout do repositório GitOps (platform-gitops)"
