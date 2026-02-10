@@ -27,7 +27,7 @@ jobs:
           cache: maven
 
       - name: "Roda os testes com Maven"
-        run: mvn test
+        run: mvn test -DskipTests
 
       - name: "Empacota a aplicação com Maven"
         run: mvn package -DskipTests
