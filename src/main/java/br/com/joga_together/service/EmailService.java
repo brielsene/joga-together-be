@@ -22,4 +22,14 @@ public class EmailService {
                 "lembrando que o código expira em 15 minutos.");
         emailSender.send(message);
     }
+
+    public void sendEmailRegisterConfirmed(String to, String nameUser) {
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setFrom("jogatogether@gmail.com");
+        message.setTo(to);
+        message.setSubject("Registro Confirmado - Joga Together");
+        message.setText("Cadastro Confirmado na Joga Together, Bem-vindo " + nameUser);
+        emailSender.send(message);
+    }
+
 }
