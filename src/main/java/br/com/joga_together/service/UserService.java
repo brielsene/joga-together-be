@@ -33,10 +33,9 @@ public class UserService {
         user.setCreationDate(LocalDateTime.now());
         user.setVerificationCode(generateToken());
 
+        userRepository.save(user);
         emailService.sendConfirmCodeRegistrer(user.getEmail(), user.getVerificationCode());
         user.setCodeExpiresAt(LocalDateTime.now().plusMinutes(15));
-
-        userRepository.save(user);
     }
 
     private String generateToken() {
