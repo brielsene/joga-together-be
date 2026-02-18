@@ -1,11 +1,11 @@
 package br.com.joga_together.repository;
 
-import br.com.joga_together.model.Game;
+import br.com.joga_together.model.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.Optional;
 import java.util.UUID;
 
-public interface GameRepository extends JpaRepository<Game, UUID> {
-    Optional<Game> findByTitle(String name);
+public interface UserRepository extends JpaRepository<User, UUID> {
+    Optional<User> findByEmail(String email);
 }
